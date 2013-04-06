@@ -1,15 +1,16 @@
 from irclib.client.client import IRCClient
 from irclib.common import numerics
-from select import poll, POLLIN, POLLOUT
-from hashlib import sha512
+from crypt import crypt
 import socket
 import config
 
+from select import poll, POLLIN, POLLOUT
+
 class IRCPollClient(IRCClient):
     def __init__(self, pollobj, **kwargs):
+        IRCClient.__init__(self, **kwargs)
         self.pollobj = pollobj
         self.add_dispatch_in(numerics.RPL_WELCOME, 1000, self.oper_up)
-        IRCClient.__init__(self, **kwargs)
 
     
     def spew_all(self, message):
@@ -42,6 +43,7 @@ class RemoteClient(object):
         self.host = host
 
         self.auth = False
+        self.user = None
 
         self.recvbuf = ''
         self.sendbuf = ''
@@ -79,18 +81,22 @@ class RemoteClient(object):
                     self.sock.close()
                     return False
 
-                pw = sha512(pw.encode('utf-8', 'ignore')).hexdigest()
-
-                if (user.lower(), pw) in config.users:
-                    self.auth = True
-                else:
-                    print('[', self.host, ']', 'Misauthenticated:', user, pw)
+                if user not in config.users:
+                    print('[', self.host, ']', 'No username:', user)
                     self.sock.close()
                     return False
+
+                if config.users[user] != crypt(pw, config.users[user]):
+                    print('[', self.host, ']', 'Misauthenticated:', user)
+                    self.sock.close()
+                    return False
+
+                self.user = user
+                self.auth = True
             elif verb == 'POSTDATA':
                 if self.auth:
                     self.send('OK\r\n')
-                    return cmd
+                    return '[{u}] {t}'.format(u=self.user, t=cmd)
                 else:
                     print('[', self.host, ']', 'Tried to send data unauthenticated')
                     self.sock.close()
