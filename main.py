@@ -263,9 +263,16 @@ while True:
                                       certfile=config.cert_file,
                                       keyfile=config.key_file,
                                       ssl_version=ssl.PROTOCOL_TLSv1)
+            flags = POLLIN
+            try:
+                newsock.do_handshake()
+            except (IOError, OSError) as e:
+                if e.errno == ssl.SSL_ERROR_WANT_WRITE:
+                    flags |= POLLOUT
+
             rclient = RemoteClient(pollobj, newsock, newhost)
             fdmap[newsock.fileno()] = (CLIENT_REMOTE, rclient)
-            pollobj.register(newsock, POLLIN)
+            pollobj.register(newsock, flags)
 
             print('[', newhost, ']', 'Connected')
 
