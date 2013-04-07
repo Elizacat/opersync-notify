@@ -24,6 +24,7 @@ class IRCPollClient(IRCClient):
             self.cmdwrite('PRIVMSG', (ch.name, message))
 
 
+    # XXX - pretty gross.
     def respond(self, client, line):
         if not line.hostmask:
             return
@@ -85,6 +86,7 @@ class IRCPollClient(IRCClient):
                 pass
 
 
+# XXX - nasty
 class RemoteClient(object):
     def __init__(self, pollobj, sock, host):
         self.pollobj = pollobj
@@ -218,6 +220,7 @@ fdmap = {
 lasttime = None
 lastmsg = None
 
+# XXX - This event loop is hideous
 while True:
     for fd, event in pollobj.poll(client.timer_run()):
         if fd not in fdmap:
