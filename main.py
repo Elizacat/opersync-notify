@@ -3,11 +3,19 @@ from irclib.client.client import IRCClient
 from irclib.common import numerics
 from crypt import crypt
 import socket
+import ssl
 import config
 import re
 import time
+import errno
 
 from select import poll, POLLIN, POLLOUT
+
+errs = ('EINPROGRESS', 'EWOULDBLOCK', 'EAGAIN', 'EINTR', 'ERESTART',
+        'ENOBUFS', 'ENOENT')
+nonblock = set(filter(None, [getattr(errno, e, None) for e in errs]))
+nonblock |= {ssl.SSL_ERROR_WANT_READ, ssl.SSL_ERROR_WANT_WRITE,
+             ssl.SSL_ERROR_WANT_CONNECT}
 
 gmtime = lambda : time.strftime("%Y-%m-%d %H:%M:%S GMT", time.gmtime(None))
 
@@ -229,6 +237,7 @@ while True:
         evobj_type, evobj = fdmap[fd]
 
         if evobj_type == CLIENT_IRC:
+            # IRC client
             if event & POLLIN:
                 try:
                     evobj.process_in()
@@ -247,7 +256,13 @@ while True:
                         raise
 
         elif evobj_type == CLIENT_LISTENSOCK:
+            # Accept a connection
             newsock, newhost = evobj.accept()
+            newsock = ssl.wrap_socket(newsock, server_side=True,
+                                      do_handshake_on_connect=False,
+                                      certfile=config.cert_file,
+                                      keyfile=config.key_file,
+                                      ssl_version=ssl.PROTOCOL_TLSv1)
             rclient = RemoteClient(pollobj, newsock, newhost)
             fdmap[newsock.fileno()] = (CLIENT_REMOTE, rclient)
             pollobj.register(newsock, POLLIN)
@@ -255,8 +270,19 @@ while True:
             print('[', newhost, ']', 'Connected')
 
         elif evobj_type == CLIENT_REMOTE:
+            # Remote client
             if event & POLLIN:
-                ret = evobj.recv()
+                try:
+                    ret = evobj.recv()
+                except (IOError, OSError) as e:
+                    if e.errno not in nonblock:
+                        pollobj.unregister(fd)
+                        del fdmap[fd]
+                    elif e.errno == ssl.SSL_ERROR_WANT_WRITE:
+                        pollobj.modify(fd, POLLIN|POLLOUT)
+
+                    continue
+
                 if ret == False:
                     print('[', evobj.host, ']', 'Disconnected')
                     pollobj.unregister(fd)

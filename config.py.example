@@ -23,3 +23,9 @@ operpw = 'dongs'
 
 ## Users authorised to use commands
 authorised = {x for x in users.keys()}
+
+## Certificate file for listening
+cert_file = 'server.crt'
+
+## Key file for listening
+key_file = 'server.key'
