@@ -1,21 +1,71 @@
+#!/usr/bin/env python3
 from irclib.client.client import IRCClient
 from irclib.common import numerics
 from crypt import crypt
 import socket
 import config
+import re
+import time
 
 from select import poll, POLLIN, POLLOUT
+
+gmtime = lambda : time.strftime("%Y-%m-%d %H:%M:%S GMT", time.gmtime(None))
 
 class IRCPollClient(IRCClient):
     def __init__(self, pollobj, **kwargs):
         IRCClient.__init__(self, **kwargs)
         self.pollobj = pollobj
         self.add_dispatch_in(numerics.RPL_WELCOME, 1000, self.oper_up)
+        self.add_dispatch_in('PRIVMSG', 1000, self.respond)
 
     
     def spew_all(self, message):
         for ch in self.channels.values():
             self.cmdwrite('PRIVMSG', (ch.name, message))
+
+
+    def respond(self, client, line):
+        if not line.hostmask:
+            return
+
+        theirnick = line.hostmask.nick
+        if theirnick not in self.users:
+            print('User unknown')
+            return
+
+        account = self.users[theirnick].account
+        if account not in config.authorised:
+            print('User unauthorised')
+            return
+
+        target = line.params[0]
+        if target == self.current_nick:
+            target = theirnick
+
+        regex = r'(?:{x}[,:\s]?|[~+!-\.])(\S+)(.*)$'.format(x=self.current_nick)
+        m = re.match(regex, line.params[-1], re.I)
+
+        if m is None: return
+
+        cmd = m.group(1).lower()
+        cmdparam = m.group(2)
+        
+        if cmd == 'lastsync':
+            if lasttime and lastmsg:
+                msg = 'The last sync I saw took place at {s}'.format(s=lasttime)
+                self.cmdwrite('PRIVMSG', (target, msg))
+
+                self.cmdwrite('PRIVMSG', (target, 'The message was as follows:'))
+                self.cmdwrite('PRIVMSG', (target, lastmsg))
+            else:
+                self.cmdwrite('PRIVMSG', (target, 'Search me, I dunno.'))
+        elif cmd == 'gmtime':
+            msg = 'Current GMT time is {t}'.format(t=gmtime())
+            self.cmdwrite('PRIVMSG', (target, msg))
+        elif cmd == 'die':
+            self.cmdwrite('PRIVMSG', (target, 'How about not.'))
+        else:
+            self.cmdwrite('PRIVMSG', (target, 'I don\'t know shit about that.'))
 
 
     def oper_up(self, client, line):
@@ -31,8 +81,7 @@ class IRCPollClient(IRCClient):
         if flags:
             try:
                 self.pollobj.modify(self.sock, flags)
-            except Exception:
-                #FIXME handle case where socket's not in the poll obj yet
+            except (IOError, OSError):
                 pass
 
 
@@ -44,6 +93,8 @@ class RemoteClient(object):
 
         self.auth = False
         self.user = None
+
+        self.want_close = False
 
         self.recvbuf = ''
         self.sendbuf = ''
@@ -83,24 +134,28 @@ class RemoteClient(object):
 
                 if user not in config.users:
                     print('[', self.host, ']', 'No username:', user)
-                    self.sock.close()
-                    return False
+                    self.send('ERROR AUTHENTICATE USER\r\n')
+                    self.want_close = True
+                    return True
 
                 if config.users[user] != crypt(pw, config.users[user]):
                     print('[', self.host, ']', 'Misauthenticated:', user)
-                    self.sock.close()
-                    return False
+                    self.send('ERROR AUTHENTICATE PASSWORD\r\n')
+                    self.want_close = True
+                    return True
 
                 self.user = user
                 self.auth = True
+                self.send('OK AUTHENTICATE\r\n')
             elif verb == 'POSTDATA':
                 if self.auth:
-                    self.send('OK\r\n')
+                    self.send('OK POSTDATA\r\n')
                     return '[{u}] {t}'.format(u=self.user, t=cmd)
                 else:
                     print('[', self.host, ']', 'Tried to send data unauthenticated')
-                    self.sock.close()
-                    return False
+                    self.send('ERROR POSTDATA AUTHENTICATE\r\n')
+                    self.want_close = True
+                    return True
             elif verb == 'PING':
                 if self.auth:
                     self.send('PONG\r\n')
@@ -120,6 +175,9 @@ class RemoteClient(object):
             count = self.sock.send(self.sendbuf.encode('utf-8', 'ignore'))
             self.sendbuf = self.sendbuf[count:]
             if len(self.sendbuf) == 0:
+                if self.want_close:
+                    self.sock.close()
+                    return False
                 self.set_pollobj(False)
         else:
             if not self.sendbuf:
@@ -127,6 +185,7 @@ class RemoteClient(object):
 
             self.sendbuf += data
 
+        return True
 
 CLIENT_UNKNOWN = 0
 CLIENT_IRC = 1
@@ -155,6 +214,9 @@ fdmap = {
     listensock.fileno() : (CLIENT_LISTENSOCK, listensock),
     client.sock.fileno() : (CLIENT_IRC, client),
 }
+
+lasttime = None
+lastmsg = None
 
 while True:
     for fd, event in pollobj.poll(client.timer_run()):
@@ -199,7 +261,12 @@ while True:
                     continue
 
                 if isinstance(ret, str):
+                    lasttime = gmtime()
+                    lastmsg = ret
                     [y.spew_all(ret) for x, y in fdmap.values() if x == CLIENT_IRC]
 
             if event & POLLOUT:
-                evobj.send()
+                if evobj.send() == False:
+                    pollobj.unregister(fd)
+                    del fdmap[fd]
+                    continue

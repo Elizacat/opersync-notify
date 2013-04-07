@@ -20,3 +20,6 @@ users = {
 ## Oper username and password (optional)
 opername = 'OperSync'
 operpw = 'dongs'
+
+## Users authorised to use commands
+authorised = {x for x in users.keys()}

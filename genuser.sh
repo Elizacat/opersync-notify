@@ -1,5 +1,6 @@
 #!/bin/sh
 
+# Example oper specification
 OPERSPEC="Elizacat|alyx|matthew|Mismagius|kyso|j0ah_|CorgiDude|andy"
 
 FSPEC="$1"
