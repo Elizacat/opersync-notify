@@ -51,7 +51,7 @@ class IRCPollClient(IRCClient):
         if target == self.current_nick:
             target = theirnick
 
-        regex = r'(?:{x}[,:\s]?|[~+!-\.])(\S+)(.*)$'.format(x=self.current_nick)
+        regex = r'(?:^{x}[,:\s]?|[~\+-\.!])(\S+)(.*$)'.format(x=self.current_nick)
         m = re.match(regex, line.params[-1], re.I)
 
         if m is None: return
@@ -231,6 +231,7 @@ lastmsg = None
 # XXX - This event loop is hideous
 while True:
     for fd, event in pollobj.poll(client.timer_run()):
+        print(fd)
         if fd not in fdmap:
             continue
 
