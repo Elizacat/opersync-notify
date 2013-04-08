@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 from irclib.client.client import IRCClient
+from irclib.common.line import Line
 from irclib.common import numerics
 from crypt import crypt
 import socket
@@ -26,10 +27,15 @@ class IRCPollClient(IRCClient):
         self.add_dispatch_in(numerics.RPL_WELCOME, 1000, self.oper_up)
         self.add_dispatch_in('PRIVMSG', 1000, self.respond)
 
-    
-    def spew_all(self, message):
+    def on_msg(self, message):
+        # Spew
         for ch in self.channels.values():
             self.cmdwrite('PRIVMSG', (ch.name, message))
+
+        # Rehash
+        if hasattr(config, 'opername') and hasattr(config, 'operpw'):
+            self.cmdwrite('REHASH', ('MOTD', 'OMOTD', '*'))
+            self.cmdwrite('REHASH', ('*',))
 
 
     # XXX - pretty gross.
@@ -71,6 +77,12 @@ class IRCPollClient(IRCClient):
         elif cmd == 'gmtime':
             msg = 'Current GMT time is {t}'.format(t=gmtime())
             self.cmdwrite('PRIVMSG', (target, msg))
+        elif cmd == 'execute':
+            try:
+                self.linewrite(Line(line=cmdparam))
+            except Exception as e:
+                msg = 'Error with command: {e}'.format(e=e)
+                self.cmdwrite('PRIVMSG', (target, msg))
         elif cmd == 'die':
             self.cmdwrite('PRIVMSG', (target, 'How about not.'))
         else:
@@ -299,7 +311,7 @@ while True:
                 if isinstance(ret, str):
                     lasttime = gmtime()
                     lastmsg = ret
-                    [y.spew_all(ret) for x, y in fdmap.values() if x == CLIENT_IRC]
+                    [y.on_msg(ret) for x, y in fdmap.values() if x == CLIENT_IRC]
 
             if event & POLLOUT:
                 if evobj.send() == False:
