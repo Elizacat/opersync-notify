@@ -58,6 +58,10 @@ class IRCPollClient(IRCClient):
             return
 
         account = self.users[theirnick].account
+        if not account or account == '*':
+            return
+
+        account = client.nickchan_lower(account)
         if account not in config.authorised:
             print('User unauthorised')
             return

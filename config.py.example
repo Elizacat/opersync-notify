@@ -22,7 +22,7 @@ opername = 'OperSync'
 operpw = 'dongs'
 
 ## Users authorised to use commands
-authorised = {x for x in users.keys()}
+authorised = {x.lower() for x in users.keys()}
 
 ## Certificate file for listening
 cert_file = 'server.crt'
