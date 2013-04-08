@@ -231,7 +231,6 @@ lastmsg = None
 # XXX - This event loop is hideous
 while True:
     for fd, event in pollobj.poll(client.timer_run()):
-        print(fd)
         if fd not in fdmap:
             continue
 
