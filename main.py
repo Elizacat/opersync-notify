@@ -34,13 +34,15 @@ class IRCPollClient(IRCClient):
 
         # Rehash
         if hasattr(config, 'opername') and hasattr(config, 'operpw'):
-            m = re.match(r'\[(.+)\]', message)
-            if not m:
+            print('Rehashing...')
+            m = re.findall(r'\[(.+)\]', message)
+            if not m or len(m) < 2:
                 m = ['*']
             else:
-                m = m.group(1).split()
+                m = m[1].split()
 
             for server in m:
+                print('Rehashing', server)
                 self.cmdwrite('REHASH', ('MOTD', 'OMOTD', server))
                 self.cmdwrite('REHASH', (server,))
 
