@@ -98,6 +98,10 @@ class IRCPollClient(IRCClient):
                 self.cmdwrite('PRIVMSG', (target, msg))
         elif cmd == 'die':
             self.cmdwrite('PRIVMSG', (target, 'How about not.'))
+        elif cmd == 'lag':
+            lag = 'unknown' if client.lag == 0 else client.lag
+            msg = 'Last lag check: {l}'.format(l=lag)
+            self.cmdwrite('PRIVMSG', (target, msg))
         else:
             self.cmdwrite('PRIVMSG', (target, 'I don\'t know shit about that.'))
 
