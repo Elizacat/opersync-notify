@@ -299,7 +299,7 @@ while True:
             except (IOError, OSError) as e:
                 if e.errno not in nonblock:
                     print('[', newhost, ']',
-                          'Error with SSL handshake: {e}'.format(e))
+                          'Error with SSL handshake: {e}'.format(e=e))
                     continue
                 if e.errno == ssl.SSL_ERROR_WANT_WRITE:
                     flags |= POLLOUT
