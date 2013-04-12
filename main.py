@@ -186,9 +186,11 @@ class RemoteClient(object):
                 self.user = user
                 self.auth = True
                 self.send('OK AUTHENTICATE\r\n')
+                print('[', self.host, ']', 'Authenticated:', user)
             elif verb == 'POSTDATA':
                 if self.auth:
                     self.send('OK POSTDATA\r\n')
+                    print('[', self.host, ']', 'Data posted')
                     return '[{u}] {t}'.format(u=self.user, t=cmd)
                 else:
                     print('[', self.host, ']', 'Tried to send data unauthenticated')
@@ -246,6 +248,10 @@ listensock.bind(config.binding)
 listensock.setblocking(False)
 listensock.listen(4)
 
+listensock = ssl.wrap_socket(listensock, do_handshake_on_connect=False,
+                             certfile=config.cert_file,
+                             keyfile=config.key_file)
+
 pollobj.register(listensock, POLLIN)
 pollobj.register(client.sock, POLLIN|POLLOUT)
 
@@ -287,11 +293,6 @@ while True:
         elif evobj_type == CLIENT_LISTENSOCK:
             # Accept a connection
             newsock, newhost = evobj.accept()
-            newsock = ssl.wrap_socket(newsock, server_side=True,
-                                      do_handshake_on_connect=False,
-                                      certfile=config.cert_file,
-                                      keyfile=config.key_file,
-                                      ssl_version=ssl.PROTOCOL_TLSv1)
             flags = POLLIN
             try:
                 newsock.do_handshake()
