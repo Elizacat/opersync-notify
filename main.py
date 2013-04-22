@@ -43,7 +43,8 @@ class IRCPollClient(IRCClient):
 
             for server in m:
                 print('Rehashing', server)
-                self.cmdwrite('REHASH', ('MOTD', 'OMOTD', server))
+                self.cmdwrite('REHASH', ('MOTD', server))
+                self.cmdwrite('REHASH', ('OMOTD', server))
                 self.cmdwrite('REHASH', (server,))
 
 
@@ -248,9 +249,11 @@ listensock.bind(config.binding)
 listensock.setblocking(False)
 listensock.listen(4)
 
-listensock = ssl.wrap_socket(listensock, do_handshake_on_connect=False,
+listensock = ssl.wrap_socket(listensock, server_side=True,
+                             do_handshake_on_connect=False,
                              certfile=config.cert_file,
-                             keyfile=config.key_file)
+                             keyfile=config.key_file,
+                             ssl_version=ssl.PROTOCOL_TLSv1)
 
 pollobj.register(listensock, POLLIN)
 pollobj.register(client.sock, POLLIN|POLLOUT)
