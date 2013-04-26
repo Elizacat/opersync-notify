@@ -24,7 +24,7 @@ class IRCPollClient(IRCClient):
     def __init__(self, pollobj, **kwargs):
         IRCClient.__init__(self, **kwargs)
         self.pollobj = pollobj
-        self.add_dispatch_in(numerics.RPL_WELCOME, 1000, self.oper_up)
+        self.add_dispatch_in(numerics.RPL_WELCOME, 1000, self.on_welcome)
         self.add_dispatch_in('PRIVMSG', 1000, self.respond)
 
     def on_msg(self, message):
@@ -107,7 +107,8 @@ class IRCPollClient(IRCClient):
             self.cmdwrite('PRIVMSG', (target, 'I don\'t know shit about that.'))
 
 
-    def oper_up(self, client, line):
+    def on_welcome(self, client, line):
+        self.cmdwrite('AWAY', ('I am a bot, for oper use only. Go away.'))
         if hasattr(config, 'opername') and hasattr(config, 'operpw'):
             self.cmdwrite('OPER', (config.opername, config.operpw))
 
