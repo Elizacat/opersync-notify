@@ -108,7 +108,7 @@ class IRCPollClient(IRCClient):
 
 
     def on_welcome(self, client, line):
-        self.cmdwrite('AWAY', ('I am a bot, for oper use only. Go away.'))
+        self.cmdwrite('AWAY', ('I am a bot, for oper use only. Go away.',))
         if hasattr(config, 'opername') and hasattr(config, 'operpw'):
             self.cmdwrite('OPER', (config.opername, config.operpw))
 
