@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-from irclib.client.client import IRCClient
-from irclib.common.line import Line
-from irclib.common import numerics
+from PyIRC.client.client import IRCClient
+from PyIRC.common.line import Line
+from PyIRC.common import numerics
 from crypt import crypt
 import socket
 import ssl
