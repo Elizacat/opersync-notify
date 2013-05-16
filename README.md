@@ -11,7 +11,7 @@ Run via: `./main.py`
 Edit the config in `config.py`
 
 ## Requirements
-Requires [irclib](http://github.com/Elizacat/irclib). It also only uses NickServ auth, so a network
+Requires [PyIRC](http://github.com/Elizacat/PyIRC). It also only uses NickServ auth, so a network
 with account-notify is recommended.
 
 ## Contributors
